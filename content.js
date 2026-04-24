@@ -35,9 +35,7 @@
       ? parseFloat(ratingEl.getAttribute("title") || ratingEl.textContent)
       : null;
 
-    const reviews = reviewEl
-      ? reviewEl.textContent.trim()
-      : null;
+    const reviews = reviewEl ? reviewEl.textContent.trim() : null;
 
     return {
       success: !!(title && price),
@@ -47,7 +45,7 @@
       currency: window.location.hostname.includes(".in") ? "INR" : "USD",
       rating,
       reviews,
-      url: window.location.href
+      url: window.location.href,
     };
   }
 
@@ -65,8 +63,7 @@
       document.querySelector(".Nx9bqj");
 
     const ratingEl =
-      document.querySelector("._3LWZlK") ||
-      document.querySelector(".ipqd2A");
+      document.querySelector("._3LWZlK") || document.querySelector(".ipqd2A");
 
     const title = titleEl ? titleEl.textContent.trim() : null;
     let price = null;
@@ -84,7 +81,7 @@
       price,
       currency: "INR",
       rating,
-      url: window.location.href
+      url: window.location.href,
     };
   }
 

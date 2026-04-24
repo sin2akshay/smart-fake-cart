@@ -35,7 +35,7 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
         alert.productName,
         currentPrice,
         alert.thresholdPrice,
-        alert.productUrl
+        alert.productUrl,
       );
     }
 
@@ -53,8 +53,8 @@ async function fetchCurrentPrice(url) {
       headers: {
         "User-Agent":
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
-        "Accept-Language": "en-IN,en;q=0.9"
-      }
+        "Accept-Language": "en-IN,en;q=0.9",
+      },
     });
     const html = await res.text();
 
@@ -62,18 +62,16 @@ async function fetchCurrentPrice(url) {
     const amazonPatterns = [
       /<span class="a-price-whole">([0-9,]+)<\/span>/,
       /id="priceblock_ourprice"[^>]*>.*?₹\s*([\d,]+)/s,
-      /class="apexPriceToPay"[^>]*>.*?<span[^>]*>([\d,]+)/s
+      /class="apexPriceToPay"[^>]*>.*?<span[^>]*>([\d,]+)/s,
     ];
 
     // Flipkart price patterns
     const flipkartPatterns = [
       /class="[^"]*_30jeq3[^"]*"[^>]*>₹([\d,]+)/,
-      /class="[^"]*Nx9bqj[^"]*"[^>]*>₹([\d,]+)/
+      /class="[^"]*Nx9bqj[^"]*"[^>]*>₹([\d,]+)/,
     ];
 
-    const patterns = url.includes("amazon")
-      ? amazonPatterns
-      : flipkartPatterns;
+    const patterns = url.includes("amazon") ? amazonPatterns : flipkartPatterns;
 
     for (const pat of patterns) {
       const m = html.match(pat);
@@ -99,7 +97,7 @@ async function sendNotification(productName, currentPrice, threshold, url) {
     title: "🛒 Smart Cart — Price Drop!",
     message: `${short} is now ₹${currentPrice.toLocaleString()} (below your ₹${threshold.toLocaleString()} target!)`,
     buttons: [{ title: "Open Product" }],
-    priority: 2
+    priority: 2,
   });
 }
 
@@ -114,7 +112,7 @@ chrome.notifications.onButtonClicked.addListener(
         break;
       }
     }
-  }
+  },
 );
 
 // ── Message handler from popup ─────────────────────────────────────
@@ -123,7 +121,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     const { alertId, periodInMinutes } = msg;
     chrome.alarms.create(`smartcart_${alertId}`, {
       delayInMinutes: periodInMinutes,
-      periodInMinutes
+      periodInMinutes,
     });
     sendResponse({ ok: true });
   }
