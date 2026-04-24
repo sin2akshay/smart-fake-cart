@@ -110,7 +110,8 @@ smart-fake-cart/
 3. Click the current-tab button or paste the product URL manually
 4. Click `Ask Agent: Should I buy now?`
 5. Watch the analysis cards and logs as the agent runs
-6. If an alert is created, track it in the Price Alerts panel
+6. The logs tab shows a session-style trace with iterations, tool calls, timings, and structured request/result payloads
+7. If an alert is created, track it in the Price Alerts panel
 
 ## Alerts
 
@@ -122,6 +123,7 @@ Alert behavior:
 - the popup asks the background worker to create a Chrome alarm
 - the background worker re-checks the page every 60 minutes
 - if the price falls to or below the threshold, Chrome shows a notification
+- the notification button opens the exact product tied to that alert
 
 ## Storage Used
 
@@ -138,6 +140,7 @@ The extension stores the following keys in `chrome.storage.local`:
 
 - The runtime path is Gemini-only.
 - The popup persists the last session so reopening it restores the previous URL, reasoning chain, and logs.
+- The logs mix a readable session trace with structured payload logging for debugging.
 - The background worker handles recurring alert checks separately from the popup UI.
 - Scraping depends on Amazon and Flipkart DOM structure, so selector changes can break extraction.
 

@@ -326,6 +326,11 @@ Every run produces two user-visible traces:
 1. Reasoning cards in the Analysis tab.
 2. Detailed logs in the Logs tab.
 
+The logs are intentionally split across two styles at once:
+
+- a session-style trace showing user input, iterations, tool calls, tool completion, and final answer
+- structured payload logging for model metadata, tool arguments, and tool results
+
 The popup also persists the last run into `lastSession` so reopening the popup restores:
 
 - rendered reasoning chain HTML
@@ -372,11 +377,7 @@ flowchart TD
 
 When a price drops enough, the service worker creates a Chrome notification with an "Open Product" button.
 
-When that button is clicked, the worker scans stored alerts and opens the first alert whose `triggered` flag is true.
-
-Important caveat:
-
-- notifications are not mapped back to a specific alert ID, so the button is not guaranteed to open the exact product that generated the clicked notification if multiple alerts are triggered.
+The notification ID is tied to the alert ID, so when the button is clicked the worker opens the exact product URL associated with that alert.
 
 ## Data Stored In `chrome.storage.local`
 
@@ -464,9 +465,9 @@ Amazon and Flipkart frequently change markup. Both the DOM selectors and backgro
 
 The popup uses DOM selectors on the live tab, but the background worker uses regex over fetched HTML. Those parsing strategies can drift and produce inconsistent results.
 
-### 4. Notification click routing is coarse
+### 4. Notification detail is still limited
 
-The notification button opens the first triggered alert, not the exact notification source.
+Notification handling is now mapped to the exact alert, but the notification body is still intentionally simple and does not include richer context like offer breakdowns or trend details.
 
 ### 5. Stored API key is local but not encrypted
 
