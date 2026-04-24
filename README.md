@@ -9,6 +9,8 @@ The extension combines:
 - local alert storage and hourly background price monitoring
 - a popup UI that shows reasoning cards, logs, token counts, and active alerts
 
+The project follows a simple agent pattern: the model decides what it needs next, the extension runs the requested tool, the result is fed back into the running conversation, and the loop continues until the popup can render a final buy-now or wait decision.
+
 ## Visual Summary
 
 ```mermaid
@@ -56,17 +58,14 @@ Important note:
 - price history and coupon data are generated locally with deterministic heuristics
 - alert monitoring is real and runs through Chrome alarms in the background worker
 
-## Assignment Fit
+## Agent Flow
 
-This project was built to satisfy the Session 3 agentic Chrome plugin assignment.
+The popup keeps the full interaction history for the current run and uses it on each model call. That gives the extension a clear multi-step loop instead of a one-shot prompt.
 
-It meets the key requirements because it:
-
-- calls the LLM multiple times in a tool-driven loop
-- carries forward the full prior interaction on each turn
-- shows the reasoning chain, tool calls, and tool results in the popup
-- defines 4 custom tools for the shopping use case
-- supports continuous monitoring through background price alerts
+- the model can request a tool instead of guessing
+- the tool result is appended back into the conversation
+- the popup renders each response, tool call, and tool result as visible reasoning cards
+- the run ends only when the model returns a final answer with enough context
 
 ## Project Structure
 
@@ -137,9 +136,9 @@ The extension stores the following keys in `chrome.storage.local`:
 
 ## Implementation Notes
 
-- The active runtime path is Gemini, not Claude.
-- The manifest description still mentions Claude because the project contains leftover legacy references.
-- `popup.js` still contains an unused `runClaude()` path, but the shipped UI only calls `runGemini()`.
+- The runtime path is Gemini-only.
+- The popup persists the last session so reopening it restores the previous URL, reasoning chain, and logs.
+- The background worker handles recurring alert checks separately from the popup UI.
 - Scraping depends on Amazon and Flipkart DOM structure, so selector changes can break extraction.
 
 ## Full Technical Breakdown

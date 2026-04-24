@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Smart Cart – AI Price Tracker",
   "version": "1.0.0",
-  "description": "Agentic AI price tracker for Amazon & Flipkart. Ask Claude if now is a good time to buy.",
+  "description": "Agentic AI price tracker for Amazon and Flipkart with Gemini-powered shopping analysis.",
   "permissions": [
     "activeTab",
     "storage",
@@ -15,7 +15,6 @@
     "https://www.amazon.in/*",
     "https://www.amazon.com/*",
     "https://www.flipkart.com/*",
-    "https://api.anthropic.com/*",
     "https://generativelanguage.googleapis.com/*"
   ],
   "background": {

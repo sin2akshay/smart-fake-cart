@@ -113,9 +113,6 @@ body {
   padding: 3px 10px; border-radius: 20px;
   letter-spacing: 0.2px;
 }
-.provider-pill.claude-pill {
-  background: var(--blue-soft); color: var(--blue); border: 1px solid var(--blue-line);
-}
 .provider-pill.gemini-pill {
   background: var(--cyan-soft); color: var(--cyan); border: 1px solid var(--cyan-line);
 }

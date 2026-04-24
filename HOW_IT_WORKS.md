@@ -75,11 +75,7 @@ It defines:
 - `popup.html` as the action popup
 - `content.js` as the content script injected on Amazon and Flipkart
 - permissions: `activeTab`, `storage`, `alarms`, `notifications`, `scripting`, `tabs`
-- host permissions for Amazon, Flipkart, Anthropic, and Gemini APIs
-
-Notable mismatch:
-
-- The manifest description still says "Ask Claude", but the active UI flow is Gemini-only.
+- host permissions for Amazon, Flipkart, and Gemini APIs
 
 ### `popup.html`
 
@@ -435,88 +431,16 @@ The popup tracks approximate total tokens used by summing:
 - `promptTokenCount`
 - `candidatesTokenCount`
 
-## Legacy / Unused Code Paths
+## Runtime Characteristics
 
-`popup.js` still contains a `runClaude()` implementation and comments that mention Claude.
+The popup uses a single Gemini-driven loop with a growing conversation state.
 
-However:
+Core behavior:
 
-- the setup UI is Gemini-specific
-- the API key validation requires a Google key prefix
-- the analyze button always calls `runGemini()`
-- `runClaude()` references `CLAUDE_API`, `CLAUDE_MODEL`, and `CLAUDE_TOOLS`, which are not defined in the current file
-
-So the current shipped behavior is Gemini-only, and the Claude path should be treated as leftover code rather than a working runtime path.
-
-## How This Fits The Assignment
-
-This project was built for the Session 3 "Agentic AI Chrome Plugin" assignment, and it matches the assignment requirements in a fairly direct way.
-
-### Requirement Mapping
-
-#### 1. Multiple LLM calls in an agent loop
-
-The popup runs Gemini in a loop of up to 8 turns. A typical successful run looks like this:
-
-1. Gemini asks to scrape the product page.
-2. Gemini asks for price-history analysis.
-3. Gemini asks for coupon and discount analysis.
-4. Gemini optionally asks to create an alert.
-5. Gemini returns the final verdict.
-
-That satisfies the assignment's requirement that the extension call the LLM multiple times instead of just once.
-
-#### 2. Full interaction history carried forward
-
-`runGemini()` appends every model response and every function response into the `contents` array, then resends the full accumulated conversation on the next turn.
-
-That matches the required pattern:
-
-- Query -> LLM response -> tool call -> tool result
-- then the next query includes everything that happened before
-
-#### 3. Agent reasoning chain is displayed
-
-The popup renders:
-
-- user query cards
-- agent response cards
-- tool call cards
-- tool result cards
-- raw logs in a dedicated logs tab
-
-So the extension does not hide the chain of reasoning behind a single final answer.
-
-#### 4. At least 3 custom tools
-
-This extension defines 4 tools:
-
-1. `scrape_product_page`
-2. `check_price_history`
-3. `check_discount_coupons`
-4. `set_price_alert`
-
-That exceeds the minimum requirement.
-
-#### 5. Continuous monitoring use case
-
-The assignment suggested continuous monitoring as one valid agentic use case. This extension uses that exact pattern for product-price tracking:
-
-- if the current price is not good enough, the agent creates an alert
-- the background worker checks again every 60 minutes
-- Chrome notifies the user on a price drop
-
-So the project is not just a chat wrapper. It has a persistent action that continues after the initial agent conversation ends.
-
-### Assignment-Framing Summary
-
-If you need to explain this project in a submission or demo video, the clean summary is:
-
-- the chosen use case is continuous monitoring of e-commerce prices
-- the agent uses multiple LLM turns with tool calls
-- the full chain is visible in the UI
-- the toolset is custom to the shopping domain
-- the alert system makes it agentic beyond a one-shot prompt
+- each model turn can either request a tool or return a final answer
+- every tool result is appended back into the conversation before the next turn
+- the popup exposes that chain as visible step cards and logs instead of hiding it behind one final response
+- long-running monitoring is delegated to the background worker through Chrome alarms
 
 ## Strengths Of The Current Design
 
@@ -547,10 +471,6 @@ The notification button opens the first triggered alert, not the exact notificat
 ### 5. Stored API key is local but not encrypted
 
 The Gemini API key is stored in `chrome.storage.local`, which is acceptable for a local extension demo but not a hardened secret-management solution.
-
-### 6. Manifest text is outdated
-
-The manifest and previous README still reference Claude even though the active runtime path is Gemini.
 
 ## Practical Mental Model
 

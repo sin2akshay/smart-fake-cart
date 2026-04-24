@@ -1,4 +1,4 @@
-// popup.js — Smart Cart AI Agent (Claude + Gemini)
+// popup.js — Smart Cart AI Agent
 // Redesigned: markdown rendering, structured step cards, clean UI
 "use strict";
 
@@ -362,89 +362,6 @@ btnAnalyze.addEventListener("click", async () => {
     sbStopRun();
   }
 });
-
-// ══════════════════════════════════════════════════════════════════
-//  AGENT — CLAUDE
-// ══════════════════════════════════════════════════════════════════
-async function runClaude(productUrl, apiKey) {
-  const SYSTEM = "You are a smart shopping agent. You MUST call tools in this exact order: 1) scrape_product_page, 2) check_price_history, 3) check_discount_coupons, 4) set_price_alert ONLY if price is above recommended buy price. Never skip steps 1-3. Use markdown: **bold** for emphasis, ### for sections, - for lists.";
-  const messages = [{
-    role: "user",
-    content: `Product URL: ${productUrl}\n\nTask — follow ALL steps in order:\n1. scrape_product_page → get name & current price\n2. check_price_history → 90-day price analysis\n3. check_discount_coupons → find bank offers, coupons, cashback (ALWAYS do this step)\n4. If price is still above recommended buy price after discounts, call set_price_alert\n5. Final verdict: BUY NOW or WAIT, showing the best effective price after coupons.`
-  }];
-
-  log("info", `📋 System prompt set. Model: ${CLAUDE_MODEL}`);
-  log("info", `📨 Initial user message: "Analyse product at ${productUrl}"`);
-  addUserStep(productUrl);
-
-  let loops = 0;
-  while (loops++ < 8) {
-    setStatus(`Claude thinking… (step ${loops})`);
-    log("llm",  `━━ LLM CALL #${loops} → POST ${CLAUDE_API}`);
-    log("data", `model=${CLAUDE_MODEL} | max_tokens=1500 | tools=${CLAUDE_TOOLS.length} | messages=${messages.length}`);
-
-    if (loops > 1) {
-      log("info", `⏳ Throttling ${THROTTLE_MS/1000}s before next LLM call…`);
-      setStatus(`Waiting ${THROTTLE_MS/1000}s (rate limit)…`);
-      await sleep(THROTTLE_MS);
-    }
-
-    const t0  = Date.now();
-    const raw = await apiFetch(CLAUDE_API, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-        "anthropic-dangerous-direct-browser-access": "true"
-      },
-      body: JSON.stringify({ model: CLAUDE_MODEL, max_tokens: 1500, system: SYSTEM, tools: CLAUDE_TOOLS, messages })
-    });
-    const ms = Date.now() - t0;
-
-    log("resp", `← Response in ${ms}ms | stop_reason="${raw.stop_reason}" | content_blocks=${raw.content.length}`);
-    if (raw.usage) log("data", `tokens: input=${raw.usage.input_tokens} output=${raw.usage.output_tokens}`);
-
-    const texts = raw.content.filter(b => b.type === "text");
-    if (texts.length) {
-      const txt = texts.map(b => b.text).join("\n");
-      log("resp", `💬 Text response (${txt.length} chars): "${txt.slice(0,120).replace(/\n/g," ")}${txt.length>120?"…":""}"`);
-      addAIStep("Claude", txt);
-    }
-
-    messages.push({ role: "assistant", content: raw.content });
-    if (raw.stop_reason === "end_turn") {
-      log("info", `✅ Agent finished (end_turn) after ${loops} LLM call(s)`);
-      break;
-    }
-    if (raw.stop_reason !== "tool_use") {
-      log("warn", `⚠ Unexpected stop_reason: ${raw.stop_reason}`);
-      addError("Unexpected stop: " + raw.stop_reason); break;
-    }
-
-    const toolResults = [];
-    for (const tc of raw.content.filter(b => b.type === "tool_use")) {
-      log("tool", `🔧 Tool requested: ${tc.name} (id=${tc.id})`);
-      log("data", `Input: ${JSON.stringify(tc.input)}`);
-      const cardId = addToolCallStep(tc.name, tc.input);
-      setStatus(`Running: ${tc.name}…`);
-      const tt0 = Date.now();
-      let result;
-      try {
-        result = await executeTool(tc.name, tc.input, productUrl);
-        log("tool", `✓ ${tc.name} finished in ${Date.now()-tt0}ms`);
-        log("data", `Result: ${JSON.stringify(result).slice(0,400)}`);
-      } catch (e) {
-        result = { error: e.message };
-        log("warn", `✖ ${tc.name} threw: ${e.message}`);
-      }
-      finalizeToolCard(cardId, tc.name, result);
-      toolResults.push({ type: "tool_result", tool_use_id: tc.id, content: JSON.stringify(result) });
-    }
-    log("info", `📤 Sending ${toolResults.length} tool result(s) back to LLM`);
-    messages.push({ role: "user", content: toolResults });
-  }
-}
 
 // ══════════════════════════════════════════════════════════════════
 //  AGENT — GEMINI
