@@ -7,6 +7,17 @@ const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta";
 const ALARM_PERIOD = 60;
 const THROTTLE_MS = 5000;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const GEMINI_SYSTEM_PROMPT = `You are a helpful AI shopping agent that can use tools to answer questions accurately.
+
+You have access to shopping tools provided separately.
+
+IMPORTANT RULES:
+- Use tools when you need real product data, price comparisons, discount analysis, or alert setup.
+- Follow this exact order for product analysis: 1) scrape_product_page, 2) check_price_history, 3) check_discount_coupons, 4) set_price_alert only if the price is still above the recommended buy price after discounts.
+- Never skip steps 1-3 during a normal product analysis.
+- After receiving a tool result, either use another tool or provide your final answer.
+- Do not guess product details when a tool can provide them.
+- Final user-facing answers should use markdown with **bold**, ### sections, and - bullets.`;
 
 // ── Tool schemas ────────────────────────────────────────────────────
 const TOOL_DEFS = [
@@ -23,7 +34,7 @@ const TOOL_DEFS = [
   {
     name: "check_price_history",
     description:
-      "Returns 90-day price history stats: average, min, max, 7-day trend, verdict, and recommended buy price.",
+      "Generates a simulated 90-day price history using local heuristics, then returns average, min, max, 7-day trend, verdict, and recommended buy price.",
     params: {
       type: "object",
       properties: {
@@ -58,7 +69,7 @@ const TOOL_DEFS = [
   {
     name: "check_discount_coupons",
     description:
-      "Checks available discount coupons, bank card offers, cashback deals, and EMI options for a product on Amazon or Flipkart. ALWAYS call this as step 3, after check_price_history. Returns a list of applicable offers and the best effective price after discounts.",
+      "Generates simulated discount coupons, bank card offers, cashback deals, and EMI options for a product on Amazon or Flipkart. ALWAYS call this as step 3, after check_price_history. Returns a list of illustrative offers and the best effective price after discounts.",
     params: {
       type: "object",
       properties: {
@@ -264,6 +275,14 @@ function logDone() {
   });
 }
 
+function toSingleLineJson(value) {
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
 // ══════════════════════════════════════════════════════════════════
 //  INIT
 // ══════════════════════════════════════════════════════════════════
@@ -465,7 +484,7 @@ async function runGemini(productUrl, apiKey, model) {
   const sysInstr = {
     parts: [
       {
-        text: "You are a smart shopping agent. You MUST call tools in this exact order: 1) scrape_product_page, 2) check_price_history, 3) check_discount_coupons, 4) set_price_alert ONLY if price is above recommended buy price. Never skip steps 1-3. Use markdown: **bold**, ### sections, - bullets.",
+        text: GEMINI_SYSTEM_PROMPT,
       },
     ],
   };
@@ -481,11 +500,14 @@ async function runGemini(productUrl, apiKey, model) {
   ];
 
   log("info", `📋 System instruction set. Model: ${model}`);
-  log("info", `📨 Initial user message: "Analyse product at ${productUrl}"`);
+  log("info", "============================================================");
+  log("info", `User: Analyse product at ${productUrl}`);
+  log("info", "============================================================");
   addUserStep(productUrl);
 
   let loops = 0;
   while (loops++ < 8) {
+    log("info", `--- Iteration ${loops} ---`);
     setStatus(`Gemini thinking… (step ${loops})`);
     sbSetStep(loops);
     const endpoint = `${GEMINI_BASE}/models/${model}:generateContent`;
@@ -538,16 +560,28 @@ async function runGemini(productUrl, apiKey, model) {
     const parts = cand.content?.parts || [];
 
     const textParts = parts.filter((p) => p.text);
+    const llmText = textParts.length
+      ? textParts.map((p) => p.text).join("\n")
+      : "";
     if (textParts.length) {
-      const txt = textParts.map((p) => p.text).join("\n");
-      log("resp", `💬 Text response (${txt.length} chars):\n${txt}`);
-      addAIStep(model.replace("models/", ""), txt);
+      addAIStep(model.replace("models/", ""), llmText);
     }
 
     contents.push({ role: "model", parts });
 
     const fnCalls = parts.filter((p) => p.functionCall);
     if (!fnCalls.length) {
+      if (llmText) {
+        log(
+          "info",
+          "============================================================",
+        );
+        log("resp", `Agent Answer: ${llmText}`);
+        log(
+          "info",
+          "============================================================",
+        );
+      }
       log(
         "info",
         `✅ Agent finished (no more function calls) after ${loops} LLM call(s)`,
@@ -558,7 +592,7 @@ async function runGemini(productUrl, apiKey, model) {
     const responseParts = [];
     for (const fc of fnCalls) {
       const { name, args } = fc.functionCall;
-      log("tool", `🔧 Function call: ${name}`);
+      log("tool", `→ Calling tool: ${name}(${toSingleLineJson(args)})`);
       log("data", `Args:\n${JSON.stringify(args, null, 2)}`);
       const cardId = addToolCallStep(name, args);
       setStatus(`Running: ${name}…`);
@@ -761,6 +795,8 @@ async function toolPriceHistory(productName, currentPrice, currency = "INR") {
     productName,
     currentPrice,
     currency,
+    simulated: true,
+    dataSource: "local heuristic simulation",
     avgPrice90d: avg,
     minPrice90d: min,
     maxPrice90d: max,
@@ -770,6 +806,7 @@ async function toolPriceHistory(productName, currentPrice, currency = "INR") {
     verdict,
     recommendation,
     recommendedBuyPrice,
+    note: "Simulated 90-day history generated locally from heuristics, not live market data.",
   };
 }
 
@@ -900,13 +937,15 @@ async function toolCheckCoupons(
     store,
     currency,
     currentPrice,
+    simulated: true,
+    dataSource: "local offer simulation",
     bankOffers: selectedBanks,
     coupons: selectedCoupons,
     cashback,
     bestEffectivePrice,
     totalSavings,
     savingsPct: `${savingsPct}%`,
-    note: "Offers are indicative. Verify on the store before purchase.",
+    note: "Offers are simulated examples generated locally. Verify live offers on the store before purchase.",
   };
 }
 
@@ -1078,6 +1117,10 @@ function renderHistoryResult(r) {
       : r.verdict === "EXPENSIVE"
         ? "bad"
         : "warn";
+  const noteHtml = r.note
+    ? `<div class="coupon-note">${esc(r.note)}</div>`
+    : "";
+
   return `
     <div class="tool-result-grid">
       <div class="tool-result-item">
@@ -1104,7 +1147,8 @@ function renderHistoryResult(r) {
         <span class="tri-key">Recommended Buy Price</span>
         <span class="tri-val good">${fmt(r.recommendedBuyPrice)}</span>
       </div>
-    </div>`;
+    </div>
+    ${noteHtml}`;
 }
 
 function renderCouponsResult(r) {

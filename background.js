@@ -32,10 +32,11 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
       // 🎉 Price dropped!
       alert.triggered = true;
       await sendNotification(
+        alert.id,
         alert.productName,
         currentPrice,
         alert.thresholdPrice,
-        alert.productUrl,
+        alert.currency,
       );
     }
 
@@ -87,15 +88,22 @@ async function fetchCurrentPrice(url) {
 }
 
 // ── Send Chrome notification ───────────────────────────────────────
-async function sendNotification(productName, currentPrice, threshold, url) {
+async function sendNotification(
+  alertId,
+  productName,
+  currentPrice,
+  threshold,
+  currency,
+) {
   const short =
     productName.length > 50 ? productName.slice(0, 50) + "…" : productName;
+  const symbol = currency === "USD" ? "$" : "₹";
 
-  chrome.notifications.create(`smartcart_notif_${Date.now()}`, {
+  chrome.notifications.create(`smartcart_notif_${alertId}`, {
     type: "basic",
     iconUrl: "icons/icon128.png",
     title: "🛒 Smart Cart — Price Drop!",
-    message: `${short} is now ₹${currentPrice.toLocaleString()} (below your ₹${threshold.toLocaleString()} target!)`,
+    message: `${short} is now ${symbol}${currentPrice.toLocaleString()} (below your ${symbol}${threshold.toLocaleString()} target!)`,
     buttons: [{ title: "Open Product" }],
     priority: 2,
   });
@@ -105,12 +113,13 @@ async function sendNotification(productName, currentPrice, threshold, url) {
 chrome.notifications.onButtonClicked.addListener(
   async (notifId, buttonIndex) => {
     if (buttonIndex !== 0) return;
+    if (!notifId.startsWith("smartcart_notif_")) return;
+
+    const alertId = notifId.replace("smartcart_notif_", "");
     const { alerts = {} } = await chrome.storage.local.get("alerts");
-    for (const a of Object.values(alerts)) {
-      if (a.triggered) {
-        chrome.tabs.create({ url: a.productUrl });
-        break;
-      }
+    const alert = alerts[alertId];
+    if (alert?.productUrl) {
+      chrome.tabs.create({ url: alert.productUrl });
     }
   },
 );
